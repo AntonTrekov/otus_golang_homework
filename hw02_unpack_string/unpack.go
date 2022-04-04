@@ -18,65 +18,104 @@ func Unpack(input string) (string, error) {
 	var (
 		result            strings.Builder
 		buffer            strings.Builder
-		resultError       error
+		err               error
 		isEscapingEnabled = false
 	)
 
 	for _, charRune := range input {
-		if buffer.Len() == 0 && charRune == backslashRune && !isEscapingEnabled {
-			isEscapingEnabled = true
+		if buffer.Len() == 0 {
+			err = processFistSymbolInBlock(charRune, &isEscapingEnabled, &buffer)
 
-			continue
-		}
-
-		isCurrentSymbolEscaped := isEscapingEnabled && (unicode.IsDigit(charRune) || charRune == backslashRune)
-
-		if buffer.Len() == 0 && (unicode.IsLetter(charRune) || isCurrentSymbolEscaped) {
-			buffer.WriteRune(charRune)
-			isEscapingEnabled = false
-
-			continue
-		}
-
-		if buffer.Len() == 1 && charRune == backslashRune {
-			result.WriteString(buffer.String())
-			buffer.Reset()
-			isEscapingEnabled = true
-
-			continue
-		}
-
-		if buffer.Len() == 1 && (unicode.IsLetter(charRune) || isCurrentSymbolEscaped) {
-			result.WriteString(buffer.String())
-			buffer.Reset()
-			isEscapingEnabled = false
-			buffer.WriteRune(charRune)
-
-			continue
-		}
-
-		if buffer.Len() == 1 && unicode.IsDigit(charRune) {
-			count, err := strconv.Atoi(string([]rune{charRune}))
-			if err != nil {
-				return "", err
+			if err == nil {
+				continue
 			}
-
-			result.WriteString(
-				strings.Repeat(buffer.String(), count),
-			)
-			buffer.Reset()
-			isEscapingEnabled = false
-
-			continue
 		}
 
-		resultError = ErrInvalidString
-		result.Reset()
+		if buffer.Len() == 1 {
+			err = processSecondSymbolInBlock(charRune, &isEscapingEnabled, &buffer, &result)
+
+			if err == nil {
+				continue
+			}
+		}
+
+		if buffer.Len() > 1 {
+			err = ErrInvalidString
+		}
+
+		if err != nil {
+			result.Reset()
+			break
+		}
 	}
 
-	if resultError == nil {
+	if err == nil {
 		result.WriteString(buffer.String())
 	}
 
-	return result.String(), resultError
+	return result.String(), err
+}
+
+func processFistSymbolInBlock(charRune rune, isEscapingEnabled *bool, buffer *strings.Builder) error {
+	if charRune == backslashRune && !*isEscapingEnabled {
+		*isEscapingEnabled = true
+
+		return nil
+	}
+
+	if unicode.IsLetter(charRune) || isSymbolEscaped(charRune, *isEscapingEnabled) {
+		buffer.WriteRune(charRune)
+		*isEscapingEnabled = false
+
+		return nil
+	}
+
+	return ErrInvalidString
+}
+
+func processSecondSymbolInBlock(
+	charRune rune,
+	isEscapingEnabled *bool,
+	buffer *strings.Builder,
+	result *strings.Builder,
+) error {
+	if charRune == backslashRune {
+		result.WriteString(buffer.String())
+		buffer.Reset()
+		*isEscapingEnabled = true
+
+		return nil
+	}
+
+	if unicode.IsLetter(charRune) || isSymbolEscaped(charRune, *isEscapingEnabled) {
+		result.WriteString(buffer.String())
+		buffer.Reset()
+		*isEscapingEnabled = false
+		buffer.WriteRune(charRune)
+
+		return nil
+	}
+
+	if buffer.Len() == 1 && unicode.IsDigit(charRune) {
+		count, err := strconv.Atoi(string([]rune{charRune}))
+		if err != nil {
+			result.Reset()
+
+			return err
+		}
+
+		result.WriteString(
+			strings.Repeat(buffer.String(), count),
+		)
+		buffer.Reset()
+		*isEscapingEnabled = false
+
+		return nil
+	}
+
+	return ErrInvalidString
+}
+
+func isSymbolEscaped(charRune rune, isEscapingEnabled bool) bool {
+	return isEscapingEnabled && (unicode.IsDigit(charRune) || charRune == backslashRune)
 }
