@@ -16,8 +16,24 @@ func TestUnpack(t *testing.T) {
 		{input: "abccd", expected: "abccd"},
 		{input: "", expected: ""},
 		{input: "aaa0b", expected: "aab"},
+		{input: "AbC2", expected: "AbCC"},
 		{input: `qwe\4\5`, expected: `qwe45`},
 		{input: `qwe\45`, expected: `qwe44444`},
+		{input: `qwe\45`, expected: `qwe44444`},
+		{input: `чебур2ек`, expected: `чебуррек`},
+		{input: `💩4💩`, expected: `💩💩💩💩💩`},
+		{input: `]*#2@`, expected: `]*##@`},
+		{input: `牡マ2キ`, expected: `牡ママキ`},
+		{input: `ل2لأعيان`, expected: `لللأعيان`},
+		{input: `b.3`, expected: `b...`},
+		{input: `"check"`, expected: `"check"`},
+		{input: `t 3st`, expected: `t   st`},
+		{input: `\t\r`, expected: `tr`},
+		{input: `	2a	`, expected: `		a	`},
+		{input: `
+2`, expected: `
+
+`},
 		{input: `qwe\\5`, expected: `qwe\\\\\`},
 		{input: `qwe\\\3`, expected: `qwe\3`},
 		{input: `\\qwe`, expected: `\qwe`},
@@ -41,11 +57,17 @@ func TestUnpack(t *testing.T) {
 }
 
 func TestUnpackInvalidString(t *testing.T) {
-	invalidStrings := []string{"3abc", "45", "aaa10b", "чебурек", "]*#@", "💩"}
+	invalidStrings := []struct {
+		input string
+	}{
+		{input: `3abc`},
+		{input: `45`},
+		{input: `aaa10b`},
+	}
 	for _, tc := range invalidStrings {
 		tc := tc
-		t.Run(tc, func(t *testing.T) {
-			_, err := Unpack(tc)
+		t.Run(tc.input, func(t *testing.T) {
+			_, err := Unpack(tc.input)
 			require.Truef(t, errors.Is(err, ErrInvalidString), "actual error %q", err)
 		})
 	}

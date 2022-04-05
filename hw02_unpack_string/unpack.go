@@ -31,16 +31,12 @@ func Unpack(input string) (string, error) {
 			}
 		}
 
-		if buffer.Len() == 1 {
+		if buffer.Len() > 0 {
 			err = processSecondSymbolInBlock(charRune, &isEscapingEnabled, &buffer, &result)
 
 			if err == nil {
 				continue
 			}
-		}
-
-		if buffer.Len() > 1 {
-			err = ErrInvalidString
 		}
 
 		if err != nil {
@@ -63,7 +59,7 @@ func processFistSymbolInBlock(charRune rune, isEscapingEnabled *bool, buffer *st
 		return nil
 	}
 
-	if unicode.IsLetter(charRune) || isSymbolEscaped(charRune, *isEscapingEnabled) {
+	if !unicode.IsDigit(charRune) || isSymbolEscaped(charRune, *isEscapingEnabled) {
 		buffer.WriteRune(charRune)
 		*isEscapingEnabled = false
 
@@ -87,7 +83,7 @@ func processSecondSymbolInBlock(
 		return nil
 	}
 
-	if unicode.IsLetter(charRune) || isSymbolEscaped(charRune, *isEscapingEnabled) {
+	if !unicode.IsDigit(charRune) || isSymbolEscaped(charRune, *isEscapingEnabled) {
 		result.WriteString(buffer.String())
 		buffer.Reset()
 		*isEscapingEnabled = false
@@ -96,7 +92,7 @@ func processSecondSymbolInBlock(
 		return nil
 	}
 
-	if buffer.Len() == 1 && unicode.IsDigit(charRune) {
+	if unicode.IsDigit(charRune) {
 		count, err := strconv.Atoi(string([]rune{charRune}))
 		if err != nil {
 			result.Reset()
